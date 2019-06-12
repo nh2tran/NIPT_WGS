@@ -229,103 +229,133 @@ def mapping_bwa(index, fastq_dir, output_dir, read_group_dict, num_threads=NUM_T
     os.system("rm " + trim_r2_paired)
 
 
-def samtools_flagstat(bam_dir):
+def process_multi_samples(function, bam_list_file, output_dir, num_threads=1, num_test=None):
+  """Process multiple samples in parallel threads.
+
+     Usage:
+       function = samtools_flagstat_per_bam
+       bam_list_file = "/data/nh2tran/GeneSolutions/temp/bam_list.txt"
+       output_dir = "/data/nh2tran/GeneSolutions/temp/samtools_flagstat/"
+       process_multi_samples(function, bam_list_file, output_dir)
+  """
+
+  print("".join(["="] * 80)) # section-separating line
+  print("process_multi_samples()")
+  print("function =", function.__name__)
+  print("bam_list_file =", bam_list_file)
+  print("output_dir =", output_dir)
+  print("".join(["="] * 80)) # section-separating line
+
+  with open(bam_list_file, 'r') as file_handle:
+    bam_list = [line.strip() for line in file_handle.readlines()]
+  print("Number of bam files:", len(bam_list))
+  # limite the number of bam files in test mode
+  if num_test is not None:
+    bam_list = bam_list[:num_test]
+
+  # create a folder to store results
+  if output_dir is not None:
+    assert not os.path.exists(output_dir), "output_dir exists " + output_dir
+    os.makedirs(output_dir)
+
+  output_dir_list = [output_dir] * len(bam_list)
+  argument_list = zip(bam_list, output_dir_list)
+  pool = multiprocessing.Pool(processes=num_threads)
+  pool.map(function, argument_list)
+  pool.close()
+  pool.join()
+
+
+def samtools_flagstat_per_bam(io_tuple):
+
+  bam_file, output_dir = io_tuple
+  bam_file_name = bam_file.split('/')[-1]
+  log_file = output_dir + bam_file_name + ".flagstat"
+  command = ["samtools flagstat"]
+  command += [bam_file]
+  command += [">", log_file]
+  command = " ".join(command)
+  os.system(command)
+
+
+def samtools_flagstat(bam_list_file, output_dir, num_threads=1, num_test=None):
   """Summarize bam files.
 
      Usage:
-       bam_dir = "/data/nh2tran/GeneSolutions/temp/bam/"
-       samtools_flagstat(bam_dir)
+       bam_list_file = "/data/nh2tran/GeneSolutions/temp/bam_list.txt"
+       output_dir = "/data/nh2tran/GeneSolutions/temp/samtools_flagstat/"
+       samtools_flagstat(bam_list_file)
   """
 
   print("".join(["="] * 80)) # section-separating line
   print("samtools_flagstat()")
-  print("bam_dir =", bam_dir)
+  print("bam_list_file =", bam_list_file)
   print("".join(["="] * 80)) # section-separating line
 
-  bam_list = [os.path.join(bam_dir, x) for x in os.listdir(bam_dir) if x[-4:] == '.bam']
-  print("Number of bam files:", len(bam_list))
-  bam_qc_pair_list = []
-  for bam in bam_list:
-    command_list = ["samtools flagstat"]
-    command_list += [bam]
-    command = " ".join(command_list)
-    print(command)
-    print()
-    command = '\"' + command + '\"'
-    os.system("script -c {0} > temp_samtools_flagstat.log".format(command))
+  process_multi_samples(samtools_flagstat_per_bam, bam_list_file, output_dir, num_threads=num_threads, num_test=num_test)
 
-    with open("temp_samtools_flagstat.log", 'r') as file_handle:
-      qc_pair_list = []
-      for line in file_handle.readlines()[1:-1]:
+  log_file_list = [output_dir + x for x in os.listdir(output_dir)]
+  total_count_list = []
+  for log_file in log_file_list:
+    count_pair_list = []
+    with open(log_file, 'r') as file_handle:
+      for line in file_handle.readlines():
         line_split = line.split(' ')
-        qc_pair_list.append([int(line_split[0]), int(line_split[2])])
-      bam_qc_pair_list.append(qc_pair_list)
+        count_pair_list.append([int(line_split[0]), int(line_split[2])])
+    total_count_list.append(count_pair_list)
+  # sum up counts over samples
+  total_count_array = np.array(total_count_list)
+  total_count_array = np.sum(total_count_array, axis=0)
 
-  bam_qc_pair_arr = np.array(bam_qc_pair_list)
-  qc_pair_arr = np.sum(bam_qc_pair_arr, axis=0)
+  print("num_total =", total_count_array[0])
+  print("num_secondary =", total_count_array[1])
+  print("num_supplementary =", total_count_array[2])
+  print("num_duplicate =", total_count_array[3])
+  print("num_mapped =", total_count_array[4])
+  print("num_paired =", total_count_array[5])
+  print("num_read1 =", total_count_array[6])
+  print("num_read2 =", total_count_array[7])
+  print("num_properly_paired =", total_count_array[8])
+  print("num_itself_mate_mapped =", total_count_array[9])
+  print("num_singleton =", total_count_array[10])
+  print("num_mate_mapped_diff_chr =", total_count_array[11])
+  print("num_mate_mapped_diff_chr_mapq_5 =", total_count_array[12])
 
-  print("num_total =", qc_pair_arr[0])
-  print("num_secondary =", qc_pair_arr[1])
-  print("num_supplementary =", qc_pair_arr[2])
-  print("num_duplicate =", qc_pair_arr[3])
-  print("num_mapped =", qc_pair_arr[4])
-  print("num_paired =", qc_pair_arr[5])
-  print("num_read1 =", qc_pair_arr[6])
-  print("num_read2 =", qc_pair_arr[7])
-  print("num_properly_paired =", qc_pair_arr[8])
-  print("num_itself_mate_mapped =", qc_pair_arr[9])
-  print("num_singleton =", qc_pair_arr[10])
-  print("num_mate_mapped_diff_chr =", qc_pair_arr[11])
-  print("num_mate_mapped_diff_chr_mapq_5 =", qc_pair_arr[12])
-
-  mapped_rate = float(qc_pair_arr[4][0]) / qc_pair_arr[0][0]
-  properly_paired_rate = float(qc_pair_arr[8][0]) / qc_pair_arr[5][0]
+  mapped_rate = float(total_count_array[4][0]) / total_count_array[0][0]
+  properly_paired_rate = float(total_count_array[8][0]) / total_count_array[5][0]
+  duplicate_rate = float(total_count_array[3][0]) / total_count_array[4][0]
   print("mapped_rate =", mapped_rate)
   print("properly_paired_rate =", properly_paired_rate)
+  print("duplicate_rate =", duplicate_rate)
 
 
-def samtools_idxstats(bam_dir):
-  """Summarize bam files.
+def gatk_mark_duplicates(io_tuple):
 
-     Usage:
-       bam_dir = "/data/nh2tran/GeneSolutions/temp/bam/"
-       samtools_idxstats(bam_dir)
-  """
+  bam_file, output_dir = io_tuple
 
-  print("".join(["="] * 80)) # section-separating line
-  print("samtools_idxstats()")
-  print("bam_dir =", bam_dir)
-  print("".join(["="] * 80)) # section-separating line
+  # gatk MarkDuplicates -I 10-W3790.sorted.bam -O 10-W3790.sorted.marked_duplicates.bam -M metrics.txt
+  bam_file_name = bam_file.split('/')[-1]
+  prefix = bam_file_name[:-4]
+  output_bam_file = output_dir + prefix + ".marked_duplicates.bam"
+  output_metrics_file = output_bam_file + ".metrics.txt"
+  command = ["gatk MarkDuplicates"]
+  command += ["-I", bam_file]
+  command += ["-O", output_bam_file]
+  command += ["-M", output_metrics_file]
+  command += ["--QUIET", "true"]
+  command += ["--VERBOSITY", "ERROR"]
+  command = " ".join(command)
+  os.system(command)
 
-  bam_list = [os.path.join(bam_dir, x) for x in os.listdir(bam_dir) if x[-4:] == '.bam']
-  print("Number of bam files:", len(bam_list))
-  chromosome_dict = {}
-  for bam in bam_list:
-    command_list = ["samtools idxstats"]
-    command_list += [bam]
-    command = " ".join(command_list)
-    print(command)
-    print()
-    command = '\"' + command + '\"'
-    os.system("script -c {0} > temp_samtools_idxstats.log".format(command))
 
-    with open("temp_samtools_idxstats.log", 'r') as file_handle:
-      for line in file_handle.readlines()[1:-1]:
-        line_split = line.split('\t')
-        chromosome = line_split[0]
-        length = int(line_split[1])
-        num_mapped = int(line_split[2])
-        num_unmapped = int(line_split[3])
-        if chromosome not in chromosome_dict:
-          chromosome_dict[chromosome] = {'length': length,
-                                         'num_mapped': num_mapped,
-                                         'num_unmapped': num_unmapped}
-        else:
-          chromosome_dict[chromosome]['num_mapped'] += num_mapped
-          chromosome_dict[chromosome]['num_unmapped'] += num_unmapped
+def gatk_build_bam_index(io_tuple):
 
-  for chromosome, value in chromosome_dict.items():
-    print(chromosome, value['length'], value['num_mapped'], value['num_unmapped'])
+  bam_file, output_dir = io_tuple
+
+  command = ["gatk BuildBamIndex"]
+  command += ["-I", bam_file]
+  command = " ".join(command)
+  os.system(command)
 
 
 def gatk_per_chromosome(chromosome):
