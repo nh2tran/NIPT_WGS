@@ -1,3 +1,7 @@
+jupyter notebook --no-browser --port=8889
+ssh -N -f -L localhost:8888:localhost:8889 username@your_remote_host_name
+python2 -m ipykernel install --user --name python2.7_tensorflow1.12
+
 # check read length of fastq
 zcat sample.fastq.gz | awk '{if(NR%4==2) print length($1)}'
 
@@ -35,6 +39,10 @@ NONE	NONE	2038 + 0 singletons (0.04% : N/A)
 NONE	NONE	71560 + 0 with mate mapped to a different chr
 NONE	NONE	28422 + 0 with mate mapped to a different chr (mapQ>=5)
 
+# calculate average mapq across reference
+bedtools makewindows -g hg38_selected.genome.chr1 -w 1000 > hg38_selected.genome.chr1.bed
+bedtools map -a hg38_selected.genome.chr1.bed -b <(bedtools bamtobed -i NIPT_700.chr1.bam) -c 5 -o mean > NIPT_700.chr1.bam.mapq.bed
+
 
 # bcftools mpileup | call
 bcftools mpileup --threads 8 -f references/hg38.fa sample.sorted.bam -Ou | bcftools call --threads 8 -vm -Oz > sample.vcf.gz
@@ -44,6 +52,7 @@ bcftools call --threads 8 -vm sample.bcf -Oz > sample.vcf.gz
 
 # Remove 'chr' from chromosome names in the vcf file
 zcat sample.vcf.gz | awk '{gsub(/^chr/,""); print}' | bgzip > sample.no_chr.vcf.gz
+zcat sample.vcf.gz | awk '{if($0 !~ /^#/) print "chr"$0; else print $0}' | bgzip > sample.with_chr.vcf.gz
 
 
 # bcftools filter
