@@ -39,10 +39,15 @@ NONE	NONE	2038 + 0 singletons (0.04% : N/A)
 NONE	NONE	71560 + 0 with mate mapped to a different chr
 NONE	NONE	28422 + 0 with mate mapped to a different chr (mapQ>=5)
 
+
+# qualimap
+"qualimap bamqc -bam NIPT_700.step_3_filter_q20_1read.bam -c -gd HUMAN -nr 200 --java-mem-size=120G"
+
+
 # calculate average mapq across reference
 bedtools makewindows -g hg38_selected.genome.chr1 -w 1000 > hg38_selected.genome.chr1.bed
 bedtools map -a hg38_selected.genome.chr1.bed -b <(bedtools bamtobed -i NIPT_700.chr1.bam) -c 5 -o mean > NIPT_700.chr1.bam.mapq.bed
-
+aawk '{if (($4 >= 54) && ($4 <= 192)) {print}}' NIPT_700.q_10.bam.bedgraph | cut -f 1,2,3 > NIPT_700.q_10.bam.coverage_54_192.bed
 
 # bcftools mpileup | call
 bcftools mpileup --threads 8 -f references/hg38.fa sample.sorted.bam -Ou | bcftools call --threads 8 -vm -Oz > sample.vcf.gz
@@ -56,9 +61,10 @@ zcat sample.vcf.gz | awk '{if($0 !~ /^#/) print "chr"$0; else print $0}' | bgzip
 
 
 # bcftools filter
-bcftools filter -i '%QUAL>=10 & INFO/DP>=10 & INFO/DP<10' sample.vcf.gz -Oz -o sample.qual_10.vcf.gz
+bcftools filter -t ^chrY -i 'INFO/DP>=10 & INFO/DP<=10' sample.vcf.gz -Oz -o sample.dp_10.vcf.gz
 bcftools filter -s QUAL_10 -i '%QUAL>=10' sample.vcf.gz -Oz -o sample.qual_10.vcf.gz
-
+bcftools view -m - test.vcf.gz | bcftools view --types snps -Oz -o test.snps_only.vcf.gz
+gatk LeftAlignAndTrimVariants --variant test.vcf.gz --reference hg38_selected.fa --output test.vcf.gz
 
 # bcftools summary stats
 tabix -p vcf sample.vcf.gz
