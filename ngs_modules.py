@@ -1224,12 +1224,15 @@ def compare_AF(sample_AF_file, population_AF_file, AF_max, scatter_plot_res):
   print("population_AF_list.shape =", population_AF_list.shape)
   corr = np.corrcoef(sample_AF_list, population_AF_list)[0, 1]
   error = sample_AF_list - population_AF_list
+  pe = error / ((sample_AF_list + population_AF_list) / 2)
   ae = np.absolute(error)
-  ape = ae / ((sample_AF_list + population_AF_list) / 2)
+  ape = np.absolute(pe)
   mae = np.mean(ae)
   mape = np.mean(ape)
+  mpe = np.mean(pe)
   median_ae = np.median(ae)
   median_ape = np.median(ape)
+  median_pe = np.median(pe)
   pct_negative_error = np.sum(error < 0) / len(error)
   print("corr =", corr)
   print("mae =", mae)
@@ -1237,6 +1240,8 @@ def compare_AF(sample_AF_file, population_AF_file, AF_max, scatter_plot_res):
   print("median_ae =", median_ae)
   print("median_ape =", median_ape)
   print("pct_negative_error =", pct_negative_error)
+  print("mpe =", mpe)
+  print("median_pe =", median_pe)
   
   slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(x=sample_AF_list, y=population_AF_list)
   print("slope =", slope)
@@ -1254,6 +1259,11 @@ def compare_AF(sample_AF_file, population_AF_file, AF_max, scatter_plot_res):
   pyplot.text(0.0, 0.9, 'Pearson correlation = {0:.1%}'.format(corr), fontsize=18)
   ax.tick_params(labelsize=12)
   pyplot.savefig('plot_scatter_AF.png')
+  pyplot.close()
+
+  fig, ax = pyplot.subplots(figsize=(8, 8))
+  pyplot.boxplot(pe)
+  pyplot.savefig('plot_AF_pe.png')
   pyplot.close()
 
 

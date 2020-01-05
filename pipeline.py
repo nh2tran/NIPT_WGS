@@ -97,7 +97,7 @@ from ngs_modules import *
 # step n - FilterMutectCalls
 # ~ gatk FilterMutectCalls --variant test.vcf.gz --reference ../references/hg38_selected.fa --output test.filtered.vcf.gz --stats test.vcf.gz.merged.stats
 ########################################################################
-# step n - annotate NIPT_AF
+# step n - annotate NIPT_AF # should add NIPT_AF_AD
 # ~ bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t[%AF]\n' NIPT_2683.step_n_FilterMutectCalls.vcf.gz | bgzip > temp_annotate.tab.gz
 # ~ tabix -s1 -b2 -e2 temp_annotate.tab.gz
 # ~ vim temp_annotate.hdr
@@ -154,22 +154,22 @@ from ngs_modules import *
 # ~ draw_figure_2_venn()
 
 
-# AF distribution with respect to Venn diagram
-# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 1' -Oz -o NIPT_2683.snps_only.venn_khv1.vcf.gz
-# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 0 && (INFO/1KG_EAS == 1 || ID != ".")' -Oz -o NIPT_2683.snps_only.venn_khv0_eas1_or_dbSNP1.vcf.gz
-# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 0 && INFO/1KG_EAS == 0 && ID == "."' -Oz -o NIPT_2683.snps_only.venn_novel.vcf.gz
-# ~ bcftools stats NIPT_2683.snps_only.venn_novel.vcf.gz --af-tag NIPT_AF --af-bins af_bins.txt > NIPT_2683.snps_only.venn_novel.vcf.gz.stats
-
-
 # compare allele frequency between NIPT and KHV 
 # ~ bcftools isec NIPT_2683.snps_only.vcf.gz khv.snps_only.vcf.gz -p isec_snps.NIPT_2683.khv
 # ~ isec_dir = "/data/nh2tran/GeneSolutions/temp/isec_snps.NIPT_2683.khv/"
-# ~ #sample_AF_file, population_AF_file = get_AF(isec_dir)
+# ~ sample_AF_file, population_AF_file = get_AF(isec_dir)
 # ~ sample_AF_file = isec_dir + "sample_AF_list.npy"
 # ~ population_AF_file = isec_dir + "population_AF_list.npy"
 # ~ AF_max = 1.0
 # ~ scatter_plot_res = 100
 # ~ compare_AF(sample_AF_file, population_AF_file, AF_max, scatter_plot_res)
+
+
+# AF distribution with respect to Venn diagram
+# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 1' -Oz -o NIPT_2683.snps_only.venn_khv1.vcf.gz
+# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 0 && (INFO/1KG_EAS == 1 || ID != ".")' -Oz -o NIPT_2683.snps_only.venn_khv0_eas1_or_dbSNP1.vcf.gz
+# ~ bcftools view NIPT_2683.snps_only.annotated.vcf.gz --include 'INFO/1KG_KHV == 0 && INFO/1KG_EAS == 0 && ID == "."' -Oz -o NIPT_2683.snps_only.venn_novel.vcf.gz
+# ~ bcftools stats NIPT_2683.snps_only.venn_novel.vcf.gz --af-tag NIPT_AF --af-bins af_bins.txt > NIPT_2683.snps_only.venn_novel.vcf.gz.stats
 
 
 ########################################################################
